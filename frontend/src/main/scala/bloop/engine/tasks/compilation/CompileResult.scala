@@ -4,7 +4,6 @@ import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
-import bloop.data.Project
 import bloop.{Compiler, JavaSignal}
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
@@ -13,16 +12,11 @@ import monix.eval.Task
 import scala.util.Try
 
 sealed trait CompileResult[+R] {
-  def bundle: CompileBundle
   def result: R
 }
 
 sealed trait PartialCompileResult extends CompileResult[Task[Compiler.Result]] {
-  def bundle: CompileBundle
   def result: Task[Compiler.Result]
-
-  def toFinalResult: Task[FinalCompileResult] =
-    result.map(res => FinalCompileResult(bundle, res))
 }
 
 object PartialCompileResult {
@@ -42,11 +36,33 @@ object PartialCompileResult {
         PartialFailure(bundle, t, result)
     }
   }
+
+  def toFinalResult(result: PartialCompileResult): Task[List[FinalCompileResult]] = {
+    result match {
+      case PartialEmpty => Task.now(FinalEmptyResult :: Nil)
+      case PartialFailure(project, _, result) =>
+        result.map(res => FinalNormalCompileResult(project, res) :: Nil)
+      case PartialFailures(failures, result) =>
+        Task.gatherUnordered(failures.map(toFinalResult(_))).map(_.flatten)
+      case PartialSuccess(project, _, _, _, result) =>
+        result.map(res => FinalNormalCompileResult(project, res) :: Nil)
+    }
+  }
+}
+
+case object PartialEmpty extends PartialCompileResult {
+  override final val result: Task[Compiler.Result] = Task.now(Compiler.Result.Empty)
 }
 
 case class PartialFailure(
     bundle: CompileBundle,
     exception: Throwable,
+    result: Task[Compiler.Result]
+) extends PartialCompileResult
+    with CacheHashCode
+
+case class PartialFailures(
+    failures: List[PartialCompileResult],
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
     with CacheHashCode
@@ -60,10 +76,18 @@ case class PartialSuccess(
 ) extends PartialCompileResult
     with CacheHashCode
 
-case class FinalCompileResult(
+sealed trait FinalCompileResult extends CompileResult[Compiler.Result] {
+  def result: Compiler.Result
+}
+
+case object FinalEmptyResult extends FinalCompileResult {
+  final val result = Compiler.Result.Empty
+}
+
+case class FinalNormalCompileResult private (
     bundle: CompileBundle,
     result: Compiler.Result
-) extends CompileResult[Compiler.Result]
+) extends FinalCompileResult
     with CacheHashCode
 
 object FinalCompileResult {
@@ -71,22 +95,25 @@ object FinalCompileResult {
   final implicit val showFinalResult: Show[FinalCompileResult] = new Show[FinalCompileResult] {
     private def seconds(ms: Double): String = s"${ms}ms"
     override def shows(r: FinalCompileResult): String = {
-      val projectName = r.bundle.project.name
-      r.result match {
-        case Compiler.Result.Empty => s"${projectName} (empty)"
-        case Compiler.Result.Cancelled(ms) => s"${projectName} (cancelled, lasted ${ms}ms)"
-        case Compiler.Result.Success(_, _, ms) => s"${projectName} (success ${ms}ms)"
-        case Compiler.Result.Blocked(on) => s"${projectName} (blocked on ${on.mkString(", ")})"
-        case Compiler.Result.GlobalError(problem) =>
-          s"${projectName} (failed with global error ${problem})"
-        case Compiler.Result.Failed(problems, t, ms) =>
-          val extra = t match {
-            case Some(t) => s"exception '${t.getMessage}', "
-            case None => ""
+      r match {
+        case FinalEmptyResult => s"<empty> (product of dag aggregation)"
+        case FinalNormalCompileResult(bundle, result) =>
+          val projectName = bundle.project.name
+          result match {
+            case Compiler.Result.Empty => s"${projectName} (empty)"
+            case Compiler.Result.Cancelled(ms) => s"${projectName} (cancelled, lasted ${ms}ms)"
+            case Compiler.Result.Success(_, _, ms) => s"${projectName} (success ${ms}ms)"
+            case Compiler.Result.Blocked(on) => s"${projectName} (blocked on ${on.mkString(", ")})"
+            case Compiler.Result.GlobalError(problem) =>
+              s"${projectName} (failed with global error ${problem})"
+            case Compiler.Result.Failed(problems, t, ms) =>
+              val extra = t match {
+                case Some(t) => s"exception '${t.getMessage}', "
+                case None => ""
+              }
+              s"${projectName} (failed with ${Problem.count(problems)}, $extra${ms}ms)"
           }
-          s"${projectName} (failed with ${Problem.count(problems)}, $extra${ms}ms)"
       }
     }
   }
-
 }

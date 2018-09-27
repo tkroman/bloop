@@ -3,7 +3,7 @@ package bloop.engine.tasks
 import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.engine._
-import bloop.engine.tasks.compilation._
+import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{BspLogger, Logger}
 import bloop.reporter._
@@ -130,16 +130,16 @@ object CompilationTask {
     def triggerCompile: Task[State] = {
       CompileGraph.traverse(dag, setup(_), compile(_), pipeline, logger).flatMap { partialDag =>
         val partialResults = Dag.dfs(partialDag)
-        Task.gatherUnordered(partialResults.map(_.toFinalResult)).map { results =>
-          val failures = results.collect {
-            case FinalCompileResult(p, Compiler.Result.NotOk(_)) => p
-          }
-
+        val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
+        Task.gatherUnordered(finalResults).map(_.flatten).map { results =>
           val newState = state.copy(results = state.results.addFinalResults(results))
+          val failures =
+            results.collect { case FinalNormalCompileResult(p, Compiler.Result.NotOk(_)) => p }
+
           if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
           else {
             results.foreach {
-              case FinalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _)) =>
+              case FinalNormalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _)) =>
                 val project = bundle.project
                 logger.error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
                 // Make a better job here at reporting any throwable that happens during compilation
