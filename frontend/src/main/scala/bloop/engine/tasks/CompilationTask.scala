@@ -30,7 +30,7 @@ object CompilationTask {
    */
   def compile(
       state: State,
-      project: Project,
+      dag: Dag[Project],
       reporterConfig: ReporterConfig,
       sequentialCompilation: Boolean,
       userCompileMode: CompileMode.ConfigurableMode,
@@ -126,7 +126,6 @@ object CompilationTask {
     }
 
     def setup(project: Project): CompileBundle = CompileBundle(project)
-    val dag = state.build.getDagFor(project)
     def triggerCompile: Task[State] = {
       CompileGraph.traverse(dag, setup(_), compile(_), pipeline, logger).flatMap { partialDag =>
         val partialResults = Dag.dfs(partialDag)
@@ -164,8 +163,9 @@ object CompilationTask {
         dependentResults.collect { case (p, Compiler.Result.NotOk(_)) => p }
       if (!failedDependentProjects.isEmpty) {
         val failedProjects = failedDependentProjects.map(p => s"'${p.name}'").mkString(", ")
-        logger.warn(
-          s"Skipping compilation of project '$project'; dependent $failedProjects failed to compile.")
+        // FIXME: What to print?!?
+//        logger.warn(
+//          s"Skipping compilation of project '$project'; dependent $failedProjects failed to compile.")
         Task.now(state.copy(status = ExitStatus.CompilationError))
       } else triggerCompile
     }

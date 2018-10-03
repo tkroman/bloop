@@ -93,15 +93,18 @@ object Interpreter {
     state.mergeStatus(ExitStatus.Ok)
   }
 
+  private def getProjectsDag(projects: List[Project], state: State): Dag[Project] =
+    Aggregate(projects.map(p => state.build.getDagFor(p)))
+
   private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
     val scheduler = ExecutionContext.bspScheduler
     BspServer.run(cmd, state, RelativePath(".bloop"), scheduler)
   }
 
-  private[bloop] def watch(project: Project, state: State)(f: State => Task[State]): Task[State] = {
-    val reachable = Dag.dfs(state.build.getDagFor(project))
+  private[bloop] def watch(projects: List[Project], state: State)(f: State => Task[State]): Task[State] = {
+    val reachable = Dag.dfs(getProjectsDag(projects, state))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
-    val watcher = SourceWatcher(project, allSources.toList, state.logger)
+    val watcher = SourceWatcher(projects.map(_.name), allSources.toList, state.logger)
     val fg = (state: State) =>
       f(state).map { state =>
         watcher.notifyWatch()
@@ -117,7 +120,7 @@ object Interpreter {
   private def runCompile(
       cmd: CompilingCommand,
       state0: State,
-      project: Project,
+      projects: List[Project],
       deduplicateFailures: Boolean,
       excludeRoot: Boolean = false
   ): Task[State] = {
@@ -130,9 +133,10 @@ object Interpreter {
     val compilerMode: CompileMode.ConfigurableMode = CompileMode.Sequential
     val compileTask = state.flatMap { state =>
       val config = ReporterKind.toReporterConfig(cmd.reporter)
+      val dag = getProjectsDag(projects, state)
       CompilationTask.compile(
         state,
-        project,
+        dag,
         config,
         deduplicateFailures,
         compilerMode,
@@ -149,12 +153,16 @@ object Interpreter {
       state: State,
       deduplicateFailures: Boolean
   ): Task[State] = {
-    state.build.getProjectFor(cmd.project) match {
-      case Some(project) =>
-        if (!cmd.watch) runCompile(cmd, state, project, deduplicateFailures)
-        else watch(project, state)(runCompile(cmd, _, project, deduplicateFailures))
-      case None => reportMissing(cmd.project :: Nil, state)
-    }
+    // FIXME: HERE
+    val (projects, missingProjects) = lookupProjects(cmd.project, state)
+    // Report all the missing projects and then compile any found projects
+    for {
+      s0 <- reportMissing(missingProjects, state)
+      s1 <- if (!cmd.watch)
+          runCompile(cmd, s0, projects, deduplicateFailures)
+        else
+          watch(projects, s0)(runCompile(cmd, _, projects, deduplicateFailures))
+    } yield s1
   }
 
   private def showProjects(cmd: Commands.Projects, state: State): Task[State] = Task {
@@ -196,6 +204,7 @@ object Interpreter {
   }
 
   private def test(cmd: Commands.Test, state: State, sequential: Boolean): Task[State] = {
+    // FIXME: here we can at least trivially just report the missing ones immediately and not do any more work
     Tasks.pickTestProject(cmd.project, state) match {
       case Some(project) =>
         def doTest(state: State): Task[State] = {
@@ -210,12 +219,13 @@ object Interpreter {
         if (cmd.watch) watch(project, state)(doTest _) else doTest(state)
 
       case None =>
-        reportMissing(cmd.project :: Nil, state)
+        reportMissing(cmd.project, state)
     }
   }
 
   type ProjectLookup = (List[Project], List[String])
   private def lookupProjects(names: List[String], state: State): ProjectLookup = {
+    // FIXME: THis is *very* similar to what we need
     val build = state.build
     val result = List[Project]() -> List[String]()
     names.foldLeft(result) {
