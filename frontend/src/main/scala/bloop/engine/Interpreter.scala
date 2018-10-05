@@ -153,16 +153,12 @@ object Interpreter {
       state: State,
       deduplicateFailures: Boolean
   ): Task[State] = {
-    // FIXME: HERE
     val (projects, missingProjects) = lookupProjects(cmd.project, state)
-    // Report all the missing projects and then compile any found projects
-    for {
-      s0 <- reportMissing(missingProjects, state)
-      s1 <- if (!cmd.watch)
-          runCompile(cmd, s0, projects, deduplicateFailures)
-        else
-          watch(projects, s0)(runCompile(cmd, _, projects, deduplicateFailures))
-    } yield s1
+    if (missingProjects.nonEmpty) Task.now(reportMissing(missingProjects, state))
+    else {
+      if (!cmd.watch) runCompile(cmd, state, projects, deduplicateFailures)
+      else watch(projects, state)(runCompile(cmd, _, projects, deduplicateFailures))
+    }
   }
 
   private def showProjects(cmd: Commands.Projects, state: State): Task[State] = Task {
@@ -199,7 +195,7 @@ object Interpreter {
         compileAnd(cmd, state, project, cmd.excludeRoot, sequential, "`console`")(
           state => Tasks.console(state, project, cmd.excludeRoot)
         )
-      case None => reportMissing(cmd.project :: Nil, state)
+      case None => Task.now(reportMissing(cmd.project :: Nil, state))
     }
   }
 
@@ -218,8 +214,7 @@ object Interpreter {
 
         if (cmd.watch) watch(project, state)(doTest _) else doTest(state)
 
-      case None =>
-        reportMissing(cmd.project, state)
+      case None => Task.now(reportMissing(cmd.project, state))
     }
   }
 
@@ -301,7 +296,7 @@ object Interpreter {
       val (projects, missing) = lookupProjects(cmd.project, state)
       if (missing.isEmpty)
         Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
-      else reportMissing(missing, state)
+      else Task.now(reportMissing(missing, state))
     }
   }
 
@@ -402,7 +397,7 @@ object Interpreter {
       case Some(project) =>
         val linkTask = doLink(project) _
         if (cmd.watch) watch(project, state)(linkTask) else linkTask(state)
-      case None => reportMissing(cmd.project :: Nil, state)
+      case None => Task.now(reportMissing(cmd.project :: Nil, state))
     }
   }
 
@@ -441,11 +436,11 @@ object Interpreter {
       case Some(project) =>
         val runTask = doRun(project) _
         if (cmd.watch) watch(project, state)(runTask) else runTask(state)
-      case None => reportMissing(cmd.project :: Nil, state)
+      case None => Task.now(reportMissing(cmd.project :: Nil, state))
     }
   }
 
-  private def reportMissing(projectNames: List[String], state: State): Task[State] = Task.now {
+  private def reportMissing(projectNames: List[String], state: State): State = {
     val projects = projectNames.mkString("'", "', '", "'")
     val configDirectory = state.build.origin.syntax
     state
