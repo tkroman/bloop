@@ -5,6 +5,8 @@ import bloop.logging.Logger
 import xsbti.compile.CompileAnalysis
 import xsbti.{Position, Severity}
 
+import ch.epfl.scala.bsp
+
 import scala.collection.mutable
 
 /**
@@ -59,6 +61,9 @@ abstract class Reporter(
 
   private def hasWarnings(problems: Seq[Problem]): Boolean =
     problems.exists(_.severity == Severity.Warn)
+
+  def reportStartCompilation(): Unit
+  def reportEndCompilation(code: bsp.StatusCode): Unit
 }
 
 final class LogReporter(
@@ -89,6 +94,8 @@ final class LogReporter(
     }
   }
 
+  override def reportStartCompilation(): Unit = ()
+  override def reportEndCompilation(code: bsp.StatusCode): Unit = ()
 }
 
 object Reporter {

@@ -7,7 +7,7 @@ object Dependencies {
 
   val nailgunVersion = "0c8b937b"
   val zincVersion = "1.2.1+106-0dad4a69"
-  val bspVersion = "1.0.0+100-d09868b9" 
+  val bspVersion = "2.0.0-M1" 
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M3"
   val lmVersion = "1.0.0"

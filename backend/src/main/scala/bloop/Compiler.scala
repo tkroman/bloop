@@ -154,27 +154,43 @@ object Compiler {
     // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
 
+    import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
-    val logger = compileInputs.reporter.logger
-    val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
-    BloopZincCompiler.compile(inputs, compileInputs.mode, logger).materialize.map {
-      case Success(result) =>
-        // Report warnings that occurred in previous compilation cycles
-        previousAnalysis.foreach { previous =>
-          warningsFromPreviousRuns(previous, result.analysis()).foreach { p =>
-            // Note that buffered warnings are not added back to the current analysis on purpose
-            compileInputs.reporter.log(p)
-          }
-        }
+    val reporter = compileInputs.reporter
+    reporter.reportStartCompilation()
 
-        val res = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
-        Result.Success(compileInputs.reporter, res, elapsed)
-      case Failure(f: StopPipelining) => Result.Blocked(f.failedProjectNames)
-      case Failure(f: xsbti.CompileFailed) => Result.Failed(f.problems().toList, None, elapsed)
-      case Failure(_: xsbti.CompileCancelled) => Result.Cancelled(elapsed)
-      case Failure(t: Throwable) =>
-        t.printStackTrace()
-        Result.Failed(Nil, Some(t), elapsed)
-    }
+    val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
+    BloopZincCompiler
+      .compile(inputs, compileInputs.mode, reporter.logger)
+      .materialize
+      .map {
+        case Success(result) =>
+          // Report warnings that occurred in previous compilation cycles
+          previousAnalysis.foreach { previous =>
+            warningsFromPreviousRuns(previous, result.analysis()).foreach { p =>
+              // Note that buffered warnings are not added back to the current analysis on purpose
+              compileInputs.reporter.log(p)
+            }
+          }
+
+          // Report end of compilation only after we have reported all warnings from previous runs
+          reporter.reportEndCompilation(bsp.StatusCode.Ok)
+          val res = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
+          Result.Success(compileInputs.reporter, res, elapsed)
+        case Failure(_: xsbti.CompileCancelled) =>
+          reporter.reportEndCompilation(bsp.StatusCode.Cancelled)
+          Result.Cancelled(elapsed)
+        case Failure(cause) =>
+          val result = cause match {
+            case f: StopPipelining => Result.Blocked(f.failedProjectNames)
+            case f: xsbti.CompileFailed => Result.Failed(f.problems().toList, None, elapsed)
+            case t: Throwable =>
+              t.printStackTrace()
+              Result.Failed(Nil, Some(t), elapsed)
+          }
+
+          reporter.reportEndCompilation(bsp.StatusCode.Error)
+          result
+      }
   }
 }

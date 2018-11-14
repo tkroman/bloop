@@ -7,6 +7,7 @@ import bloop.cli.Commands
 import bloop.data.Project
 import bloop.engine.State
 import bloop.engine.caches.{ResultsCache, StateCache}
+import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
@@ -70,7 +71,7 @@ object BspClientTest {
         case bsp.LogMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
       }
       .notification(endpoints.Build.publishDiagnostics) {
-        case bsp.PublishDiagnosticsParams(uri, _, diagnostics) =>
+        case bsp.PublishDiagnosticsParams(uri, _, _, diagnostics, _) =>
           // We prepend diagnostics so that tests can check they came from this notification
           def printDiagnostic(d: bsp.Diagnostic): String = s"[diagnostic] ${d.message} ${d.range}"
           diagnostics.foreach { d =>
@@ -122,8 +123,12 @@ object BspClientTest {
       val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
         bsp.InitializeBuildParams(
+          "test-bloop-client",
+          "1.0.0",
+          BuildInfo.bspVersion,
           rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
-          capabilities = bsp.BuildClientCapabilities(List("scala"), false)
+          capabilities = bsp.BuildClientCapabilities(List("scala")),
+          None
         )
       )
 

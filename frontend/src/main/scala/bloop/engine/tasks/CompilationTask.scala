@@ -214,7 +214,7 @@ object CompilationTask {
     logger match {
       case bspLogger: BspServerLogger =>
         // Disable reverse order to show errors as they come for BSP clients
-        new BspReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
+        new BspProjectReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
       case _ => new LogReporter(logger, cwd, identity, config)
     }
   }

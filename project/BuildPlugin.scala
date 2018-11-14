@@ -80,6 +80,7 @@ object BuildKeys {
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
 
+  val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
   val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
@@ -149,9 +150,11 @@ object BuildKeys {
     val jsBridge06Key = fromIvyModule("jsBridge06", Keys.ivyModule in jsBridge06)
     val jsBridge10Key = fromIvyModule("jsBridge10", Keys.ivyModule in jsBridge10)
     val nativeBridgeKey = fromIvyModule("nativeBridge", Keys.ivyModule in nativeBridge)
+    val bspKey = BuildInfoKey.constant("bspVersion" -> Dependencies.bspVersion)
+    val extra = List(zincKey, developersKey, nativeBridgeKey, jsBridge06Key, jsBridge10Key, bspKey)
     val commonKeys = List[BuildInfoKey](
       Keys.organization,
-      Keys.name,
+      BuildKeys.bloopName,
       Keys.version,
       Keys.scalaVersion,
       Keys.sbtVersion,
@@ -159,7 +162,7 @@ object BuildKeys {
       localBenchmarksIndex,
       nailgunClientLocation
     )
-    commonKeys ++ List(zincKey, developersKey, nativeBridgeKey, jsBridge06Key, jsBridge10Key)
+    commonKeys ++ extra
   }
 
   val GradleInfoKeys: List[BuildInfoKey] = List(
