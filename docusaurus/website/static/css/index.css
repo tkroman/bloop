@@ -1,5 +1,5 @@
 .hero {
-  background: $heroBackgroundColor;
+  background: $primaryColor;
   color: #f9f9f9;
   overflow: hidden;
   padding: 2rem 1rem 2rem;
@@ -54,12 +54,79 @@
   border-bottom: 1px solid #f9f9f9;
 }
 
+.tldrSection {
+  text-align: start;
+}
+
+.tldrSection a:not(.hash-link) {
+  border-bottom: 1px solid $primaryColor;
+}
+
+.mainContainer a:not(.hash-link) {
+  text-decoration: underline;
+}
+
+.pluginRowBlock .buttonWrapper:first-of-type .button {
+  background: #7bc2c1;
+}
+
+.pluginRowBlock .buttonWrapper:nth-of-type(2) .button {
+  background: #c596c7;
+}
+
+.pluginRowBlock .button {
+  font-size: 0.8em;
+  padding: 9px 2rem 8px;
+  color: $primaryColor;
+  font-weight: 600;
+}
+
+.pluginRowBlock .button {
+  border-radius: 16px;
+}
+
+.tldrSection h2::before {
+  content: "# ";
+}
+
+.tldrSection {
+  padding: 12px 0;
+}
+
+.tldrSection ul {
+  padding-left: 24px;
+}
+
+.tldrSection ul li {
+  font-size: 1em;
+}
+
+.whySection {
+  list-style: none !important;
+  list-style-position: inside;
+}
+
+.whySection li:first-of-type::before {
+  content: "⚡ ";
+  vertical-align: sub;
+}
+
+.whySection li:nth-of-type(2)::before {
+  content: "⏱ ";
+  vertical-align: sub;
+}
+
+.whySection li:nth-of-type(3)::before {
+  content: "💯 ";
+  vertical-align: sub;
+}
+
+.whySection li:nth-of-type(4)::before {
+  content: "🏄 ";
+  vertical-align: sub;
+}
 
 @media only screen and (min-width: 736px) {
-  .hero {
-    padding: 3rem 10rem 3rem;
-  }
-
   .hero h1 {
     font-size: 3.938rem;
   }
@@ -83,6 +150,23 @@
   
   .fixedHeaderContainer header .headerTitleWithLogo {
     font-size: 1.4em;
+  }
+
+  .tldrSection {
+    padding: 1.5em 0;
+  }
+
+  .tldrSection ul li {
+    font-size: 1.2em;
+  }
+
+  .tldrSection h2 {
+    font-size: 2.2em;
+  }
+
+  .featureSection {
+    list-style: none !important;
+    list-style-position: inside;
   }
 }
 
@@ -206,6 +290,14 @@
 }
 .wrapper .sponsors-work .card-text p {
   padding: 0;
+}
+
+.wrapper.productShowcaseSection {
+  text-align: center;
+}
+.wrapper.productShowcaseSection h2 {
+  font-size: 30px;
+  text-align: center;
 }
 
 .mainContainer .wrapper.productShowcaseSection {

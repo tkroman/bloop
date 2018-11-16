@@ -6,6 +6,7 @@
  */
 
 const React = require('react');
+const PropTypes = require("prop-types");
 
 const CompLibrary = require('../../core/CompLibrary.js');
 
@@ -106,8 +107,7 @@ class HomeSplash extends React.Component {
           <ProjectTitle />
           <PromoSection>
             <Button href="#try">Try It Out</Button>
-            <Button href={docUrl('doc1.html', language)}>Example Link</Button>
-            <Button href={docUrl('doc2.html', language)}>Example Link 2</Button>
+            <Button href={docUrl('doc1.html', language)}>Get Started</Button>
           </PromoSection>
         </div>
       </SplashContainer>
@@ -124,14 +124,53 @@ const Block = props => (
   </Container>
 );
 
+const TldrSection = ({ language }) => (
+  <div className="tldrSection productShowcaseSection lightBackground">
+    <Container>
+      <div
+        style={{
+          display: "flex",
+          flexFlow: "row wrap",
+          justifyContent: "space-evenly"
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <h2>Features</h2>
+          <ul className="featureSection" style={{ flex: "1" }}>
+            <li>Provides <b>fast</b> compile, test and run</li>
+            <li>Sports a command-line tool</li>
+            <li>Integrates with most JVM build tools</li>
+            <li>Implements the <b><a href="https://github.com/scalacenter/bsp">Build Server Protocol</a></b></li>
+            <li>Supports JVM, Scala.js and Scala Native</li>
+          </ul>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <h2>Why?</h2>
+          <ul className="whySection" style={{ flex: "1" }}>
+            <li>You edit code and get instant feedback </li>
+            <li>Saves you time and makes you more productive</li>
+            <li>Makes Scala support in build tools easier</li>
+            <li>Adaptable to your own developer workflow</li>
+          </ul>
+        </div>
+      </div>
+    </Container>
+  </div>
+);
+
+TldrSection.propTypes = {
+  language: PropTypes.string
+};
+
+
 const Features = () => (
   <Block layout="fourColumn">
     {[
       {
+        //image: imgUrl('docusaurus.svg'),
+        //imageAlign: 'top',
+        title: 'Features',
         content: 'This is the content of my feature',
-        image: imgUrl('docusaurus.svg'),
-        imageAlign: 'top',
-        title: 'Feature One',
       },
       {
         content: 'The content of my second feature',
@@ -223,6 +262,7 @@ class Index extends React.Component {
     return (
       <div>
         <Hero language={language} />
+        <TldrSection language={language} />
         <div className="mainContainer">
           <Features />
           <FeatureCallout />
