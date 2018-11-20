@@ -1,12 +1,38 @@
-/**
- * Copyright (c) 2017-present, Facebook, Inc.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
+const parseYaml = require("js-yaml").safeLoad;
+const path = require("path");
+const fs = require("fs");
 
-// See https://docusaurus.io/docs/site-config for all the possible
-// site configuration options.
+function findMarkDownSync(startPath) {
+  const result = [];
+  const files = fs.readdirSync(path.join(__dirname, startPath));
+  files.forEach(val => {
+    const fPath = path.join(startPath, val);
+    const stats = fs.statSync(fPath);
+    if (stats.isDirectory()) {
+      result.push({
+        title: val,
+        path: fPath,
+      });
+    }
+  });
+  return result;
+}
+
+function loadYaml(fsPath) {
+  return parseYaml(fs.readFileSync(path.join(__dirname, fsPath), "utf8"));
+}
+
+function loadMD(fsPath) {
+  return fs.readFileSync(path.join(__dirname, fsPath), "utf8");
+}
+
+const tools = loadYaml("./tools.yml");
+
+const toolsMD = findMarkDownSync("../docs/tools/");
+toolsMD.forEach(tool => {
+  tool.install = loadMD(`${tool.path}/install.md`);
+  tool.usage = loadMD(`${tool.path}/usage.md`);
+});
 
 // List of projects/orgs using your project for the users page.
 const users = [
@@ -40,12 +66,16 @@ const siteConfig = {
 
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
+    {page: 'setup', label: 'Setup'},
     {doc: 'doc1', label: 'Docs'},
     {page: 'help', label: 'Community'},
     {blog: true, label: 'Blog'},
     {search: true},
     {href: repoUrl, label: 'GitHub'},
   ],
+
+  tools,
+  toolsMD,
 
   // If you have users set above, you add it here:
   users,

@@ -1,0 +1,3 @@
+- name: Built-ins
+  items:
+    bloop_cli: CLI

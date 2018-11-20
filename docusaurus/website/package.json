@@ -10,5 +10,8 @@
   },
   "devDependencies": {
     "docusaurus": "^1.5.1"
+  },
+  "dependencies": {
+    "js-yaml": "^3.12.0"
   }
 }

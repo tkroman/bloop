@@ -126,6 +126,11 @@
   vertical-align: sub;
 }
 
+blockquote {
+  background-color: rgb(30, 194, 239, 0.1);
+  border-left: 8px solid rgb(30, 194, 239);
+}
+
 @media only screen and (min-width: 736px) {
   .hero h1 {
     font-size: 3.938rem;
