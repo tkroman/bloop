@@ -6,17 +6,17 @@ import java.nio.charset.StandardCharsets
 import java.io.IOException
 import scala.collection.mutable
 
-final case class RepositoryCache(source: AbsolutePath, repositories: List[Repository]) {
-  def getCachedRepoFor(target: Repository): Option[Repository] =
-    repositories.find(_.id == target.id)
-  def merge(newRepositories: List[Repository]): RepositoryCache = {
-    val mergedRepositories = new mutable.ListBuffer[Repository]
+final case class RepositoryCache(indexLocation: AbsolutePath, entries: List[HashedRepository]) {
+  def getCachedRepoFor(target: Repository): Option[HashedRepository] =
+    entries.find(_.get.id == target.id)
+
+  def merge(newRepositories: List[HashedRepository]): RepositoryCache = {
+    val mergedRepositories = new mutable.ListBuffer[HashedRepository]
     mergedRepositories.++=(newRepositories)
-    repositories.map { repository =>
-      if (newRepositories.exists(_.id == repository.id)) ()
-      else mergedRepositories.+=(repository)
+    for (entry <- entries if newRepositories.exists(_.get.id == entry.get.id)) {
+      mergedRepositories.+=(entry)
     }
-    RepositoryCache(source, mergedRepositories.toList)
+    RepositoryCache(indexLocation, mergedRepositories.toList)
   }
 }
 
@@ -25,22 +25,23 @@ object RepositoryCache {
 
   def persist(cache: RepositoryCache): Either[BuildpressError.PersistFailure, Unit] = {
     val cacheFileContents = new StringBuilder()
-    cache.repositories.foreach { repo =>
+    cache.entries.foreach { entry =>
       cacheFileContents
-        .++=(repo.id)
+        .++=(entry.get.id)
         .++=(",")
-        .++=(repo.uri.toASCIIString())
+        .++=(entry.get.uri.toASCIIString)
         .++=(System.lineSeparator())
     }
     try {
       Files.write(
-        cache.source.underlying,
+        cache.indexLocation.underlying,
         cacheFileContents.mkString.getBytes(StandardCharsets.UTF_8)
       )
       Right(())
     } catch {
       case t: IOException =>
-        val msg = s"Unexpected error when persisting cache file ${cache.source}: '${t.getMessage}'"
+        val msg =
+          s"Unexpected error when persisting cache file ${cache.indexLocation}: '${t.getMessage}'"
         Left(BuildpressError.PersistFailure(error(msg), Some(t)))
     }
   }

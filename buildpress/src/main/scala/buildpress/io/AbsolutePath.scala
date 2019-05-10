@@ -2,7 +2,7 @@ package buildpress.io
 
 import java.io.File
 import java.net.URI
-import java.nio.file.{FileSystems, Files, Path, PathMatcher, Paths => NioPaths}
+import java.nio.file.{Files, Path, Paths => NioPaths}
 
 final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def syntax: String = toString
